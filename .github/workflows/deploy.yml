@@ -1,0 +1,80 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  build-web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libx11-dev libxrandr-dev libxi-dev libgl1-mesa-dev libglu1-mesa-dev libxcursor-dev libxinerama-dev libwayland-dev libxkbcommon-dev
+
+      - name: Install Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 3.1.53
+
+      - name: Setup CMake for Web
+        run: |
+          mkdir build-web
+          cd build-web
+          emcmake cmake .. -DPLATFORM=Web -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build for Web
+        run: |
+          cd build-web
+          make
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './build-web'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  build-windows:
+    runs-on: windows-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Setup CMake for Windows
+        run: |
+          mkdir build-win
+          cmake -B build-win -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build for Windows
+        run: |
+          cmake --build build-win --config Release
+
+      - name: Create Zip
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "build-win/Release/*.exe", "build-win/Release/flag.ico" -DestinationPath Minesweeper.zip
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: Minesweeper.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
