@@ -21,7 +21,7 @@ if(PLATFORM STREQUAL "Web")
     set_target_properties(${PROJECT_NAME} PROPERTIES 
         OUTPUT_NAME "index"
         SUFFIX ".html"
-        LINK_FLAGS "-s USE_GLFW=3 -s ASYNCIFY --preload-file ${CMAKE_CURRENT_SOURCE_DIR}/flag.ico@flag.ico"
+        LINK_FLAGS "-s USE_GLFW=3 -s ASYNCIFY --shell-file ${CMAKE_CURRENT_SOURCE_DIR}/src/shell.html --preload-file ${CMAKE_CURRENT_SOURCE_DIR}/flag.ico@flag.ico"
     )
 else()
     add_executable(${PROJECT_NAME} WIN32 ${SOURCES} "resources.rc")
