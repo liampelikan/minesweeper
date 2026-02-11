@@ -19,6 +19,9 @@ A modern Minesweeper clone built with C++ and Raylib originally designed for a p
 | **View Stats** | `S` Key |
 | **No Guess Mode** | `G` Key |
 
+## Download Instructions (Windows ONLY)
+ - Go to "Releases" on right taskbar or click [here](https://github.com/liampelikan/minesweeper/releases/latest).
+ - Download zip file, unzip and run exe file.
 ## Build Instructions (Windows)
 
 ### Prerequisites
@@ -28,7 +31,7 @@ A modern Minesweeper clone built with C++ and Raylib originally designed for a p
 ### Build
 1. Clone the repository.
 2. Run `build.bat`
-3. The executable will be generated at `build/Release/Minesweeper-Raylib.exe`.
+3. The executable will be generated at `build/Release/Minesweeper.exe`.
 
 ## License
 
