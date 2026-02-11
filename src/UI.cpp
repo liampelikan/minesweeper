@@ -3,7 +3,6 @@
 #include <sstream>
 #include <string>
 
-
 UI::UI(Board &board, StatManager &stats) : board(board), stats(stats) {
   Image img = LoadImage("flag.ico");
   if (img.data != nullptr) {
@@ -19,7 +18,61 @@ UI::~UI() {
   }
 }
 
-void UI::Update() {}
+void UI::Update(float currentTime) {
+  if (!board.IsGameWon()) {
+    highscoreEntered = false;
+  }
+
+  if (board.IsGameWon() && !enteringName && !highscoreEntered &&
+      stats.IsNewHighScore(currentTime)) {
+    enteringName = true;
+    lastTimeRecord = currentTime;
+    nameCharCount = 0;
+    playerName[0] = '\0';
+    invalidName = false;
+    currentRank = stats.GetRankForTime(currentTime);
+  }
+
+  if (enteringName) {
+    int key = GetCharPressed();
+    while (key > 0) {
+      if ((key >= 32) && (key <= 125) && (nameCharCount < 15)) {
+        playerName[nameCharCount] = (char)key;
+        playerName[nameCharCount + 1] = '\0';
+        nameCharCount++;
+      }
+      key = GetCharPressed();
+    }
+
+    if (IsKeyDown(KEY_BACKSPACE)) {
+      backspaceTimer += GetFrameTime();
+      if (IsKeyPressed(KEY_BACKSPACE) ||
+          (backspaceTimer > 0.5f &&
+           (backspaceTimer - 0.5f) > backspaceInterval)) {
+        if (backspaceTimer > 0.5f) {
+          backspaceTimer = 0.5f + backspaceInterval * 0.5f;
+        }
+
+        if (nameCharCount > 0) {
+          nameCharCount--;
+          playerName[nameCharCount] = '\0';
+        }
+      }
+    } else {
+      backspaceTimer = 0.0f;
+    }
+
+    if (IsKeyPressed(KEY_ENTER) && nameCharCount > 0) {
+      if (stats.IsValidName(playerName)) {
+        stats.AddHighScore(playerName, lastTimeRecord);
+        enteringName = false;
+        highscoreEntered = true;
+      } else {
+        invalidName = true;
+      }
+    }
+  }
+}
 
 void UI::Draw(float currentTime, bool showStats) {
   DrawCustomTitleBar();
@@ -37,7 +90,9 @@ void UI::Draw(float currentTime, bool showStats) {
     }
   }
 
-  if (board.IsGameWon()) {
+  if (enteringName) {
+    DrawNameEntry();
+  } else if (board.IsGameWon()) {
     DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(),
                   Color{0, 255, 0, 40});
     DrawText("VICTORY!", GetScreenWidth() / 2 - MeasureText("VICTORY!", 40) / 2,
@@ -58,7 +113,7 @@ void UI::Draw(float currentTime, bool showStats) {
              offsetY + board.GetHeight() * cellSize / 2 + 10, 20, RAYWHITE);
   }
 
-  if (showStats) {
+  if (showStats && !enteringName) {
     DrawStatsOverlay();
   }
 }
@@ -180,7 +235,7 @@ void UI::DrawMine(int cx, int cy, int size) {
     Vector2 origin = {(float)size / 2.0f, (float)size / 2.0f};
     DrawTexturePro(mineTexture, source, dest, origin, 0.0f, WHITE);
   } else {
-    DrawCircle(cx, cy, size / 2.5f, BLACK);
+    DrawCircle((float)cx, (float)cy, size / 2.5f, BLACK);
     float spikeLen = size / 2.0f;
     for (int i = 0; i < 8; i++) {
       float angle = i * PI / 4.0f;
@@ -189,7 +244,8 @@ void UI::DrawMine(int cx, int cy, int size) {
                   (float)cy + sin(angle) * spikeLen},
                  2.0f, BLACK);
     }
-    DrawCircle(cx - size / 7, cy - size / 7, size / 10, GRAY);
+    DrawCircle((float)cx - size / 7.0f, (float)cy - size / 7.0f, size / 10.0f,
+               GRAY);
   }
 }
 
@@ -197,10 +253,14 @@ void UI::DrawFlag(int cx, int cy, int size) {
   float baseW = size * 0.7f;
   float poleH = size * 1.1f;
 
-  DrawRectangle(cx - baseW / 2, cy + poleH / 2 - 4, baseW, 4, BLACK);
-  DrawRectangle(cx - baseW / 4, cy + poleH / 2 - 8, baseW / 2, 4, BLACK);
+  DrawRectangle((int)((float)cx - baseW / 2.0f),
+                (int)((float)cy + poleH / 2.0f - 4.0f), (int)baseW, 4, BLACK);
+  DrawRectangle((int)((float)cx - baseW / 4.0f),
+                (int)((float)cy + poleH / 2.0f - 8.0f), (int)(baseW / 2.0f), 4,
+                BLACK);
 
-  DrawRectangle(cx - 2, cy - poleH / 2, 4, poleH, BLACK);
+  DrawRectangle((int)((float)cx - 2.0f), (int)((float)cy - poleH / 2.0f), 4,
+                (int)poleH, BLACK);
 
   Vector2 top = {(float)cx, (float)cy - poleH / 2};
   Vector2 bottom = {(float)cx, (float)cy - poleH / 2 + size * 0.5f};
@@ -209,19 +269,20 @@ void UI::DrawFlag(int cx, int cy, int size) {
 }
 
 void UI::DrawStatsOverlay() {
-  int w = 450;
-  int h = 350;
+  int w = 650;
+  int h = 400;
   int x = (GetScreenWidth() - w) / 2;
   int y = (GetScreenHeight() - h) / 2;
 
-  DrawRectangle(x - 5, y - 5, w + 10, h + 10, Color{0, 0, 0, 200});
-  DrawRectangleRounded({(float)x, (float)y, (float)w, (float)h}, 0.1f, 8,
-                       Color{45, 50, 60, 255});
-  DrawRectangleRoundedLines({(float)x, (float)y, (float)w, (float)h}, 0.1f, 8,
+  DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Color{0, 0, 0, 150});
+  DrawRectangleRounded({(float)x, (float)y, (float)w, (float)h}, 0.05f, 8,
+                       Color{33, 37, 43, 255});
+  DrawRectangleRoundedLines({(float)x, (float)y, (float)w, (float)h}, 0.05f, 8,
                             2.0f, DARKGRAY);
 
-  DrawText("STATISTICS", x + (w - MeasureText("STATISTICS", 30)) / 2, y + 20,
-           30, SKYBLUE);
+  DrawText("STATISTICS", x + 40, y + 25, 25, SKYBLUE);
+  DrawLine(x + 300, y + 60, x + 300, y + h - 60,
+           DARKGRAY); // Vertical divider
 
   auto data = stats.GetData();
   auto getPerc = [&](int val) {
@@ -244,31 +305,96 @@ void UI::DrawStatsOverlay() {
      << std::setprecision(1) << getPerc(incomplete) << "%)";
 
   std::stringstream f, s, a;
-  f << "Fastest Time: " << std::fixed << std::setprecision(1)
+  f << "Fastest: " << std::fixed << std::setprecision(1)
     << stats.GetFastestTime() << "s";
-  s << "Slowest Time: " << std::fixed << std::setprecision(1)
+  s << "Slowest: " << std::fixed << std::setprecision(1)
     << stats.GetSlowestTime() << "s";
-  a << "Average Time: " << std::fixed << std::setprecision(1)
+  a << "Average: " << std::fixed << std::setprecision(1)
     << stats.GetAverageTime() << "s";
 
-  int textY = y + 70;
-  DrawText(s1.str().c_str(), x + 40, textY, 20, RAYWHITE);
+  int textY = y + 75;
+  int textX = x + 40;
+  DrawText(s1.str().c_str(), textX, textY, 18, RAYWHITE);
   textY += 30;
-  DrawText(s2.str().c_str(), x + 40, textY, 20, GREEN);
+  DrawText(s2.str().c_str(), textX, textY, 18, GREEN);
   textY += 30;
-  DrawText(s3.str().c_str(), x + 40, textY, 20, RED);
+  DrawText(s3.str().c_str(), textX, textY, 18, RED);
   textY += 30;
-  DrawText(s4.str().c_str(), x + 40, textY, 20, ORANGE);
-  textY += 40;
+  DrawText(s4.str().c_str(), textX, textY, 18, ORANGE);
 
-  DrawText(f.str().c_str(), x + 40, textY, 18, LIGHTGRAY);
+  textY += 60; // Increased gap to 60
+  DrawText("TIMING RECORDS", textX, textY - 25, 16, GRAY);
+  DrawText(f.str().c_str(), textX, textY, 18, LIGHTGRAY);
   textY += 25;
-  DrawText(s.str().c_str(), x + 40, textY, 18, LIGHTGRAY);
+  DrawText(s.str().c_str(), textX, textY, 18, LIGHTGRAY);
   textY += 25;
-  DrawText(a.str().c_str(), x + 40, textY, 18, LIGHTGRAY);
+  DrawText(a.str().c_str(), textX, textY, 18, LIGHTGRAY);
+
+  // Leaderboard Section
+  int lbX = x + 330;
+  int lbY = y + 75;
+  DrawText("TOP 10 RECORDS", lbX, y + 25, 20, YELLOW);
+
+  const auto &highScores = stats.GetHighScores();
+  for (int i = 0; i < 10; i++) {
+    std::string rank = std::to_string(i + 1) + ". ";
+    std::string name = (i < highScores.size()) ? highScores[i].name : "---";
+    std::stringstream ts;
+    if (i < highScores.size())
+      ts << std::fixed << std::setprecision(1) << highScores[i].time << "s";
+    else
+      ts << "---";
+
+    DrawText(rank.c_str(), lbX, lbY + (i * 24), 16, GRAY);
+    DrawText(name.c_str(), lbX + 35, lbY + (i * 24), 16,
+             (i < highScores.size() ? RAYWHITE : DARKGRAY));
+    DrawText(ts.str().c_str(), lbX + 210, lbY + (i * 24), 16,
+             (i < highScores.size() ? SKYBLUE : DARKGRAY));
+  }
 
   DrawText("Press 'S' to close",
-           x + (w - MeasureText("Press 'S' to close", 15)) / 2, y + h - 30, 15,
+           x + (w - MeasureText("Press 'S' to close", 15)) / 2, y + h - 25, 15,
+           GRAY);
+}
+
+void UI::DrawNameEntry() {
+  int w = 400;
+  int h = 200;
+  int x = (GetScreenWidth() - w) / 2;
+  int y = (GetScreenHeight() - h) / 2;
+
+  DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Color{0, 0, 0, 150});
+  DrawRectangleRounded({(float)x, (float)y, (float)w, (float)h}, 0.1f, 8,
+                       Color{33, 37, 43, 255});
+  DrawRectangleRoundedLines({(float)x, (float)y, (float)w, (float)h}, 0.1f, 8,
+                            2.0f, SKYBLUE);
+
+  std::string title = (currentRank == 1) ? "NEW RECORD!" : "TOP 10 SCORE!";
+  Color titleColor = (currentRank == 1) ? GOLD : YELLOW;
+
+  DrawText(title.c_str(), x + (w - MeasureText(title.c_str(), 25)) / 2, y + 30,
+           25, titleColor);
+
+  std::string timeMsg = "Time: " + std::to_string(lastTimeRecord).substr(0, 4) +
+                        "s (Rank #" + std::to_string(currentRank) + ")";
+  DrawText(timeMsg.c_str(), x + (w - MeasureText(timeMsg.c_str(), 20)) / 2,
+           y + 65, 20, RAYWHITE);
+
+  DrawText("Enter your name:", x + 40, y + 100, 18, LIGHTGRAY);
+
+  // Input Box
+  DrawRectangle(x + 40, y + 125, w - 80, 40, Color{20, 24, 30, 255});
+  DrawRectangleLines(x + 40, y + 125, w - 80, 40, invalidName ? RED : DARKGRAY);
+  DrawText(playerName, x + 50, y + 135, 20, RAYWHITE);
+
+  DrawText("_", x + 55 + MeasureText(playerName, 20), y + 135, 20, SKYBLUE);
+
+  if (invalidName) {
+    DrawText("Invalid or inappropriate name!", x + 40, y + 168, 15, RED);
+  }
+
+  DrawText("Press ENTER to save",
+           x + (w - MeasureText("Press ENTER to save", 15)) / 2, y + 185, 15,
            GRAY);
 }
 

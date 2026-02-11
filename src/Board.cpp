@@ -14,6 +14,8 @@ void Board::Reset() {
   firstClick = true;
   gameOver = false;
   gameWon = false;
+  clickedMineX = -1;
+  clickedMineY = -1;
 }
 
 const Cell &Board::GetCell(int x, int y) const {
@@ -163,7 +165,7 @@ void Board::GenerateNoGuess(int startX, int startY) {
   while (!IsSolvable(startX, startY) && attempts < 1000) {
     attempts++;
 
-    std::mt19937 rng(std::time(nullptr) + attempts);
+    std::mt19937 rng(static_cast<unsigned int>(std::time(nullptr)) + attempts);
     std::uniform_int_distribution<int> distX(0, width - 1);
     std::uniform_int_distribution<int> distY(0, height - 1);
 
@@ -470,7 +472,6 @@ bool Board::IsSolvable(int startX, int startY) {
     }
   }
 
-  // Check if everything but mines is revealed
   for (int y = 0; y < height; y++) {
     for (int x = 0; x < width; x++) {
       if (!grid[y][x].isMine && !solverGrid[y][x].revealed)

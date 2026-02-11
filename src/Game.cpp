@@ -64,7 +64,7 @@ void Game::Update() {
       if (sessionTime >= 2000.0f) {
         state = GameState::GAMEOVER;
         statManager.RecordGame(false, true, sessionTime, 0);
-        board.TriggerLose(); // We need to make sure this exists or simulate it
+        board.TriggerLose();
       }
     }
   } else if (state == GameState::PLAYING) {
@@ -77,10 +77,13 @@ void Game::Update() {
     }
   }
 
-  ui.Update();
+  ui.Update(sessionTime);
 }
 
 void Game::HandleInput() {
+  if (ui.IsEnteringName())
+    return;
+
   Vector2 mousePos = GetMousePosition();
 
   if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
